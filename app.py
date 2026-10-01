@@ -1,5 +1,4 @@
-import os
-from google import genai
+import google.generativeai as genai
 import streamlit as st
 
 st.set_page_config(page_title="Creador de Shorts", page_icon="🎬")
@@ -20,16 +19,18 @@ if st.button("✨ Generar Guion"):
     else:
         st.info("Generando contenido con Gemini...")
         try:
-            client = genai.Client(api_key=gemini_api_key)
-            response = client.models.generate_content(
-                model="gemini-1.5-flash",
-                contents=(
-                    "Eres un experto creador de contenido para Shorts de YouTube y TikTok. "
-                    "Crea un guion estructurado de 30 a 50 segundos con gancho inicial, "
-                    "3 puntos principales y llamada a la acción sobre el siguiente tema: "
-                    f"{prompt_usuario}"
-                ),
+            genai.configure(api_key=gemini_api_key)
+            model = genai.GenerativeModel("gemini-1.5-flash")
+
+            prompt_completo = (
+                "Eres un experto creador de contenido para Shorts de YouTube y TikTok. "
+                "Crea un guion estructurado de 30 a 50 segundos con un gancho inicial perturbador/llamativo, "
+                "3 puntos o datos principales y una llamada a la acción para suscribirse sobre el siguiente tema: "
+                f"{prompt_usuario}"
             )
+
+            response = model.generate_content(prompt_completo)
+
             st.success("¡Guion listo!")
             st.markdown(response.text)
         except Exception as e:
