@@ -22,7 +22,7 @@ if st.button("✨ Generar Guion"):
         try:
             client = genai.Client(api_key=gemini_api_key)
             response = client.models.generate_content(
-                model="gemini-2.5-flash",
+                model="gemini-1.5-flash",
                 contents=(
                     "Eres un experto creador de contenido para Shorts de YouTube y TikTok. "
                     "Crea un guion estructurado de 30 a 50 segundos con gancho inicial, "
