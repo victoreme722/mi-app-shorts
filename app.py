@@ -1,8 +1,15 @@
 import os
 import google.generativeai as genai
 from gtts import gTTS
-from moviepy.editor import AudioFileClip, ColorClip, TextClip, CompositeVideoClip
 import streamlit as st
+
+# Compatibilidad de importación para MoviePy
+try:
+    from moviepy.editor import AudioFileClip, ColorClip, CompositeVideoClip
+except ModuleNotFoundError:
+    from moviepy.audio.io.AudioFileClip import AudioFileClip
+    from moviepy.video.VideoClip import ColorClip
+    from moviepy.video.compositing.CompositeVideoClip import CompositeVideoClip
 
 st.set_page_config(
     page_title="Creador de Shorts en Video", page_icon="🎬", layout="centered"
