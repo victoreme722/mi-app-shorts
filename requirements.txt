@@ -1,5 +1,5 @@
 streamlit
 google-generativeai
 gTTS
-moviepy
+moviepy==1.0.3
 pillow
