@@ -1,5 +1,6 @@
 import asyncio
 import os
+import edge_tts
 import google.generativeai as genai
 import requests
 import streamlit as st
@@ -55,15 +56,12 @@ prompt_usuario = st.text_input(
 
 # Función para generar la voz infantil con edge-tts
 async def generar_voz_infantil(texto, voz, pitch, archivo_salida):
-    import edge_tts
-
     communicate = edge_tts.Communicate(texto, voz, pitch=pitch, rate="+8%")
     await communicate.save(archivo_salida)
 
 
 # Función para descargar e integrar video animado/comiquita real
 def obtener_video_comiquita(duracion_objetivo):
-    # Enlace a video de animación/comiquita libre de derechos
     url_video = "https://assets.mixkit.co/videos/preview/mixkit-cartoon-character-in-a-jungle-41555-large.mp4"
     archivo_fondo = "video_comiquita.mp4"
 
@@ -77,13 +75,11 @@ def obtener_video_comiquita(duracion_objetivo):
     try:
         clip_fondo = VideoFileClip(archivo_fondo)
 
-        # Ajustar duración (loopear si el audio dura más que el video)
         if clip_fondo.duration < duracion_objetivo:
             clip_fondo = clip_fondo.loop(duration=duracion_objetivo)
         else:
             clip_fondo = clip_fondo.subclip(0, duracion_objetivo)
 
-        # Redimensionar y recortar a formato vertical Short 9:16 (1080x1920)
         clip_fondo = clip_fondo.resize(height=1920)
         if clip_fondo.w > 1080:
             clip_fondo = clip_fondo.crop(
@@ -91,13 +87,12 @@ def obtener_video_comiquita(duracion_objetivo):
             )
         return clip_fondo
     except Exception:
-        # En caso de fallo de red, respaldar con fondo vertical alegre
         return ColorClip(
             size=(1080, 1920), color=(255, 182, 193), duration=duracion_objetivo
         )
 
 
-# Función para generar subtítulos estilo comiquita (texto amarillo)
+# Función para generar subtítulos estilo comiquita
 def crear_subtitulos_img(
     texto, ancho=1080, alto=1920, color_fondo=(0, 0, 0, 175)
 ):
@@ -138,7 +133,6 @@ def crear_subtitulos_img(
         bbox[3] + padding,
     ]
 
-    # Fondo oscuro redondeado con texto amarillo brillante
     draw.rounded_rectangle(caja, radius=22, fill=color_fondo)
     draw.multiline_text(
         (ancho // 2, y_centro),
@@ -221,16 +215,13 @@ if st.button("✨ Generar Short de Comiquita"):
                 audio_clip = AudioFileClip(audio_file)
                 duracion = audio_clip.duration
 
-                # Obtener video de comiquita en movimiento
                 fondo_animado = obtener_video_comiquita(duracion)
 
-                # Generar capa de subtítulos
                 img_sub = crear_subtitulos_img(
                     guion_texto, ancho=1080, alto=1920
                 )
                 txt_clip = ImageClip(img_sub).set_duration(duracion)
 
-                # Unir animación + subtítulos + voz
                 video_final = CompositeVideoClip([fondo_animado, txt_clip])
                 video_final = video_final.set_audio(audio_clip)
 
