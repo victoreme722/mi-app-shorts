@@ -1,2 +1,5 @@
 streamlit
 google-generativeai
+gTTS
+moviepy
+pillow
