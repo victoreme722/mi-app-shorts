@@ -17,42 +17,63 @@ if st.button("✨ Generar Guion"):
     elif not gemini_api_key:
         st.error("No se ha configurado la clave GEMINI_API_KEY en los Secrets.")
     else:
-        st.info("Generando contenido...")
-        genai.configure(api_key=gemini_api_key)
+        st.info("Buscando modelo activo en tu cuenta de Gemini...")
+        try:
+            genai.configure(api_key=gemini_api_key)
 
-        # Modelos activos a probar en orden
-        modelos = [
-            "gemini-2.0-flash",
-            "gemini-1.5-flash",
-            "gemini-1.5-pro",
-        ]
+            # Consultar en tiempo real los modelos disponibles para tu API Key
+            modelos_disponibles = [
+                m.name
+                for m in genai.list_models()
+                if "generateContent" in m.supported_generation_methods
+            ]
 
-        exito = False
-        error_ultimo = ""
-
-        for nombre_modelo in modelos:
-            try:
-                model = genai.GenerativeModel(nombre_modelo)
-                prompt_completo = (
-                    "Eres un experto creador de contenido para Shorts de"
-                    " YouTube y TikTok. Crea un guion estructurado de 30 a 50"
-                    " segundos con un gancho inicial impactante, 3 puntos o"
-                    " datos principales y una llamada a la acción para"
-                    " suscribirse sobre el siguiente tema: "
-                    f"{prompt_usuario}"
+            if not modelos_disponibles:
+                st.error(
+                    "No se encontraron modelos de generación disponibles para"
+                    " esta API Key. Revisa tu clave en Google AI Studio."
                 )
-                response = model.generate_content(prompt_completo)
-                if response and response.text:
-                    st.success("¡Guion listo!")
-                    st.markdown(response.text)
-                    exito = True
-                    break
-            except Exception as err:
-                error_ultimo = str(err)
-                continue
+            else:
+                # Priorizar modelos tipo 'flash' o 'pro'
+                modelos_disponibles.sort(
+                    key=lambda name: (
+                        0 if "flash" in name else (1 if "pro" in name else 2)
+                    )
+                )
 
-        if not exito:
+                exito = False
+                error_ultimo = ""
+
+                for nombre_modelo in modelos_disponibles:
+                    try:
+                        model = genai.GenerativeModel(nombre_modelo)
+                        prompt_completo = (
+                            "Eres un experto creador de contenido para Shorts de"
+                            " YouTube y TikTok. Crea un guion estructurado de 30"
+                            " a 50 segundos con un gancho inicial impactante, 3"
+                            " puntos o datos principales y una llamada a la"
+                            " acción para suscribirse sobre el siguiente tema: "
+                            f"{prompt_usuario}"
+                        )
+                        response = model.generate_content(prompt_completo)
+                        if response and response.text:
+                            st.success("¡Guion listo!")
+                            st.markdown(response.text)
+                            exito = True
+                            break
+                    except Exception as err:
+                        error_ultimo = str(err)
+                        continue
+
+                if not exito:
+                    st.error(
+                        "No se pudo generar respuesta con los modelos"
+                        f" disponibles. Detalle: {error_ultimo}"
+                    )
+
+        except Exception as err:
             st.error(
-                "No se pudo conectar con los modelos de Gemini. Verifica tu"
-                f" API Key en Secrets. Detalle: {error_ultimo}"
+                "Error de conexión con la API de Gemini. Revisa que tu"
+                f" GEMINI_API_KEY sea correcta. Detalle: {err}"
             )
+            
