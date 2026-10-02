@@ -17,32 +17,22 @@ if st.button("✨ Generar Guion"):
     elif not gemini_api_key:
         st.error("No se ha configurado la clave GEMINI_API_KEY en los Secrets.")
     else:
-        st.info("Buscando modelo disponible y generando contenido...")
-        try:
-            genai.configure(api_key=gemini_api_key)
+        st.info("Generando contenido...")
+        genai.configure(api_key=gemini_api_key)
 
-            # Autodetectar modelo activo disponible en la cuenta
-            modelo_disponible = None
-            for m in genai.list_models():
-                if "generateContent" in m.supported_generation_methods:
-                    if "flash" in m.name or "pro" in m.name:
-                        modelo_disponible = m.name
-                        break
+        # Modelos activos a probar en orden
+        modelos = [
+            "gemini-2.0-flash",
+            "gemini-1.5-flash",
+            "gemini-1.5-pro",
+        ]
 
-            if not modelo_disponible:
-                for m in genai.list_models():
-                    if "generateContent" in m.supported_generation_methods:
-                        modelo_disponible = m.name
-                        break
+        exito = False
+        error_ultimo = ""
 
-            if not modelo_disponible:
-                st.error(
-                    "No se encontró ningún modelo de texto disponible en esta"
-                    " API Key."
-                )
-            else:
-                model = genai.GenerativeModel(modelo_disponible)
-
+        for nombre_modelo in modelos:
+            try:
+                model = genai.GenerativeModel(nombre_modelo)
                 prompt_completo = (
                     "Eres un experto creador de contenido para Shorts de"
                     " YouTube y TikTok. Crea un guion estructurado de 30 a 50"
@@ -51,11 +41,18 @@ if st.button("✨ Generar Guion"):
                     " suscribirse sobre el siguiente tema: "
                     f"{prompt_usuario}"
                 )
-
                 response = model.generate_content(prompt_completo)
+                if response and response.text:
+                    st.success("¡Guion listo!")
+                    st.markdown(response.text)
+                    exito = True
+                    break
+            except Exception as err:
+                error_ultimo = str(err)
+                continue
 
-                st.success("¡Guion listo!")
-                st.markdown(response.text)
-        except Exception as e:
-            st.error(f"Ocurrió un error al conectar con Gemini: {e}")
-            
+        if not exito:
+            st.error(
+                "No se pudo conectar con los modelos de Gemini. Verifica tu"
+                f" API Key en Secrets. Detalle: {error_ultimo}"
+            )
