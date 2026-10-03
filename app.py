@@ -3,11 +3,19 @@ import os
 import edge_tts
 import google.generativeai as genai
 from gtts import gTTS
+import PIL.Image
 import requests
 import streamlit as st
-from PIL import Image, ImageDraw, ImageFont
 
-# Importaciones robustas de MoviePy y sus efectos (vfx)
+# PARCHE DE COMPATIBILIDAD PARA MOVIEPY Y PILLOW RECIENTE
+if not hasattr(PIL.Image, "ANTIALIAS"):
+    PIL.Image.ANTIALIAS = getattr(
+        PIL.Image, "LANCZOS", getattr(PIL.Image, "BICUBIC", None)
+    )
+
+from PIL import ImageDraw, ImageFont
+
+# Importaciones de MoviePy
 try:
     from moviepy.editor import (
         AudioFileClip,
@@ -80,7 +88,7 @@ async def generar_voz_segura(texto, voz_principal, archivo_salida):
     tts.save(archivo_salida)
 
 
-# Procesamiento seguro y compatible de video con MoviePy vfx
+# Procesamiento seguro y compatible de video
 def obtener_video_animado_optimizado(duracion_objetivo):
     extensiones = (".mp4", ".mov", ".avi", ".webm")
     video_local = None
@@ -105,7 +113,7 @@ def obtener_video_animado_optimizado(duracion_objetivo):
                 except Exception:
                     clip_fondo = vfx.loop(clip_fondo, duration=duracion_objetivo)
 
-            # 2. Redimensionar alto a 1920px (compatibilidad doble)
+            # 2. Redimensionar alto a 1920px
             try:
                 clip_fondo = clip_fondo.resize(height=1920)
             except Exception:
@@ -145,7 +153,7 @@ def obtener_video_animado_optimizado(duracion_objetivo):
 def crear_subtitulos_img(
     texto, ancho=1080, alto=1920, color_fondo=(0, 0, 0, 180)
 ):
-    img = Image.new("RGBA", (ancho, alto), (0, 0, 0, 0))
+    img = PIL.Image.new("RGBA", (ancho, alto), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
 
     try:
@@ -260,7 +268,7 @@ if st.button("✨ Generar Short de Comiquita"):
                 audio_clip = AudioFileClip(audio_file)
                 duracion = audio_clip.duration
 
-                # Obtener animación con funciones de compatibilidad
+                # Obtener animación
                 fondo_animado, fuente_usada = obtener_video_animado_optimizado(
                     duracion
                 )
@@ -301,4 +309,4 @@ if st.button("✨ Generar Short de Comiquita"):
 
             except Exception as e:
                 st.error(f"Error al renderizar el video: {e}")
-    
+                
