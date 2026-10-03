@@ -69,50 +69,66 @@ async def generar_voz_segura(texto, voz_principal, archivo_salida):
     tts.save(archivo_salida)
 
 
-# Función con múltiples URLs de videos de animación real para garantizar descarga
+# Función prioritaria: usa 'fondo.mp4' subido a GitHub o descarga con User-Agent
 def obtener_video_animado_real(duracion_objetivo):
-    urls_animacion = [
-        "https://v.ftcdn.net/05/23/94/82/700_F_523948283_a3889p4N4nK2L5x.mp4",
-        "https://assets.mixkit.co/videos/preview/mixkit-cartoon-character-in-a-jungle-41555-large.mp4",
-        "https://assets.mixkit.co/videos/preview/mixkit-colorful-abstract-bokeh-lights-background-41558-large.mp4",
-    ]
+    archivo_local = "fondo.mp4"
 
-    archivo_fondo = "animacion_caricatura.mp4"
-
-    # Probar fuentes hasta descargar un video válido
-    descargado = False
-    for url in urls_animacion:
+    # 1. Si el usuario subió fondo.mp4 a GitHub, usarlo directamente (Garantizado)
+    if os.path.exists(archivo_local):
         try:
-            resp = requests.get(url, stream=True, timeout=10)
-            if resp.status_code == 200:
-                with open(archivo_fondo, "wb") as f:
-                    for chunk in resp.iter_content(chunk_size=1024 * 1024):
-                        if chunk:
-                            f.write(chunk)
-                descargado = True
-                break
-        except Exception:
-            continue
-
-    try:
-        if descargado and os.path.exists(archivo_fondo):
-            clip_fondo = VideoFileClip(archivo_fondo)
+            clip_fondo = VideoFileClip(archivo_local)
             if clip_fondo.duration < duracion_objetivo:
                 clip_fondo = clip_fondo.loop(duration=duracion_objetivo)
             else:
                 clip_fondo = clip_fondo.subclip(0, duracion_objetivo)
 
-            # Ajustar a vertical 9:16 (1080x1920)
             clip_fondo = clip_fondo.resize(height=1920)
             if clip_fondo.w > 1080:
                 clip_fondo = clip_fondo.crop(
                     x_center=clip_fondo.w / 2, width=1080, height=1920
                 )
             return clip_fondo
-    except Exception:
-        pass
+        except Exception:
+            pass
 
-    # Si todo falla, crear fondo azul marino con textura
+    # 2. Si no hay archivo local, intentar descarga con cabecera de navegador
+    urls_animacion = [
+        "https://v.ftcdn.net/05/23/94/82/700_F_523948283_a3889p4N4nK2L5x.mp4",
+        "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+    ]
+
+    archivo_temp = "animacion_descargada.mp4"
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        )
+    }
+
+    for url in urls_animacion:
+        try:
+            resp = requests.get(url, headers=headers, stream=True, timeout=10)
+            if resp.status_code == 200:
+                with open(archivo_temp, "wb") as f:
+                    for chunk in resp.iter_content(chunk_size=1024 * 1024):
+                        if chunk:
+                            f.write(chunk)
+
+                clip_fondo = VideoFileClip(archivo_temp)
+                if clip_fondo.duration < duracion_objetivo:
+                    clip_fondo = clip_fondo.loop(duration=duracion_objetivo)
+                else:
+                    clip_fondo = clip_fondo.subclip(0, duracion_objetivo)
+
+                clip_fondo = clip_fondo.resize(height=1920)
+                if clip_fondo.w > 1080:
+                    clip_fondo = clip_fondo.crop(
+                        x_center=clip_fondo.w / 2, width=1080, height=1920
+                    )
+                return clip_fondo
+        except Exception:
+            continue
+
+    # De respaldo
     return ColorClip(
         size=(1080, 1920), color=(25, 35, 60), duration=duracion_objetivo
     )
@@ -277,4 +293,4 @@ if st.button("✨ Generar Short de Comiquita"):
 
             except Exception as e:
                 st.error(f"Error al renderizar el video: {e}")
-    
+            
