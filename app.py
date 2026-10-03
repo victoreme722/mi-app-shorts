@@ -69,71 +69,70 @@ async def generar_voz_segura(texto, voz_principal, archivo_salida):
     tts.save(archivo_salida)
 
 
-# Función con URL directa sin bloqueo de IP
+# Detección automática de CUALQUIER archivo de video subido a GitHub
 def obtener_video_animado_real(duracion_objetivo):
-    archivo_local = "fondo.mp4"
+    extensiones_video = (".mp4", ".mov", ".avi", ".mkv", ".webm")
 
-    # 1. Si subiste fondo.mp4 a GitHub, se usará localmente
-    if os.path.exists(archivo_local) and os.path.getsize(archivo_local) > 1000:
+    video_encontrado = None
+    try:
+        # Escanear todos los archivos en la carpeta del proyecto en GitHub
+        for f in os.listdir("."):
+            if f.lower().endswith(extensiones_video) and not f.startswith(
+                ("short_", "animacion_")
+            ):
+                if os.path.getsize(f) > 100000:  # Mayor a 100 KB
+                    video_encontrado = f
+                    break
+    except Exception:
+        pass
+
+    if video_encontrado:
         try:
-            clip_fondo = VideoFileClip(archivo_local)
+            clip_fondo = VideoFileClip(video_encontrado)
+
+            # Cortar o repetir según la duración del guion
             if clip_fondo.duration < duracion_objetivo:
                 clip_fondo = clip_fondo.loop(duration=duracion_objetivo)
             else:
                 clip_fondo = clip_fondo.subclip(0, duracion_objetivo)
 
+            # Formato vertical Shorts (1080x1920)
             clip_fondo = clip_fondo.resize(height=1920)
             if clip_fondo.w > 1080:
                 clip_fondo = clip_fondo.crop(
                     x_center=clip_fondo.w / 2, width=1080, height=1920
                 )
-            return clip_fondo, "Video Local de GitHub (fondo.mp4)"
+
+            return clip_fondo, f"Video de GitHub detectado: '{video_encontrado}'"
         except Exception as e:
             pass
 
-    # 2. Enlace público CDN de muestra animada que no bloquea Streamlit Cloud
-    urls_animacion = [
-        "https://raw.githubusercontent.com/intel-iot-devkit/sample-videos/master/free-space-detection.mp4",
-        "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
-        "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
-    ]
-
+    # Respaldo si no encuentra ningún video en la carpeta
+    url_backup = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
     archivo_temp = "animacion_descargada.mp4"
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-        )
-    }
+    headers = {"User-Agent": "Mozilla/5.0"}
 
-    for url in urls_animacion:
-        try:
-            resp = requests.get(url, headers=headers, stream=True, timeout=15)
-            if resp.status_code == 200:
-                with open(archivo_temp, "wb") as f:
-                    for chunk in resp.iter_content(chunk_size=1024 * 1024):
-                        if chunk:
-                            f.write(chunk)
+    try:
+        resp = requests.get(url_backup, headers=headers, stream=True, timeout=15)
+        if resp.status_code == 200:
+            with open(archivo_temp, "wb") as f:
+                for chunk in resp.iter_content(chunk_size=1024 * 1024):
+                    if chunk:
+                        f.write(chunk)
+            clip_fondo = VideoFileClip(archivo_temp)
+            if clip_fondo.duration < duracion_objetivo:
+                clip_fondo = clip_fondo.loop(duration=duracion_objetivo)
+            else:
+                clip_fondo = clip_fondo.subclip(0, duracion_objetivo)
+            clip_fondo = clip_fondo.resize(height=1920)
+            if clip_fondo.w > 1080:
+                clip_fondo = clip_fondo.crop(
+                    x_center=clip_fondo.w / 2, width=1080, height=1920
+                )
+            return clip_fondo, "Video respaldado CDN"
+    except Exception:
+        pass
 
-                if (
-                    os.path.exists(archivo_temp)
-                    and os.path.getsize(archivo_temp) > 10000
-                ):
-                    clip_fondo = VideoFileClip(archivo_temp)
-                    if clip_fondo.duration < duracion_objetivo:
-                        clip_fondo = clip_fondo.loop(duration=duracion_objetivo)
-                    else:
-                        clip_fondo = clip_fondo.subclip(0, duracion_objetivo)
-
-                    clip_fondo = clip_fondo.resize(height=1920)
-                    if clip_fondo.w > 1080:
-                        clip_fondo = clip_fondo.crop(
-                            x_center=clip_fondo.w / 2, width=1080, height=1920
-                        )
-                    return clip_fondo, f"Video descargado de CDN ({url})"
-        except Exception:
-            continue
-
-    # 3. Respaldo
     return (
         ColorClip(
             size=(1080, 1920), color=(25, 35, 60), duration=duracion_objetivo
@@ -142,7 +141,7 @@ def obtener_video_animado_real(duracion_objetivo):
     )
 
 
-# Generador de capas de subtítulos estilo infantil
+# Subtítulos estilo comiquita
 def crear_subtitulos_img(
     texto, ancho=1080, alto=1920, color_fondo=(0, 0, 0, 180)
 ):
@@ -261,7 +260,6 @@ if st.button("✨ Generar Short de Comiquita"):
                 audio_clip = AudioFileClip(audio_file)
                 duracion = audio_clip.duration
 
-                # Obtener animación real y estado
                 fondo_animado, fuente_usada = obtener_video_animado_real(
                     duracion
                 )
