@@ -69,79 +69,53 @@ async def generar_voz_segura(texto, voz_principal, archivo_salida):
     tts.save(archivo_salida)
 
 
-# Detección automática de CUALQUIER archivo de video subido a GitHub
-def obtener_video_animado_real(duracion_objetivo):
-    extensiones_video = (".mp4", ".mov", ".avi", ".mkv", ".webm")
+# Carga optimizada de video para no saturar memoria RAM
+def obtener_video_animado_optimizado(duracion_objetivo):
+    # Buscar cualquier video subido en el repositorio
+    extensiones = (".mp4", ".mov", ".avi", ".webm")
+    video_local = None
 
-    video_encontrado = None
-    try:
-        # Escanear todos los archivos en la carpeta del proyecto en GitHub
-        for f in os.listdir("."):
-            if f.lower().endswith(extensiones_video) and not f.startswith(
-                ("short_", "animacion_")
-            ):
-                if os.path.getsize(f) > 100000:  # Mayor a 100 KB
-                    video_encontrado = f
-                    break
-    except Exception:
-        pass
+    for f in os.listdir("."):
+        if f.lower().endswith(extensiones) and not f.startswith(
+            ("short_", "animacion_")
+        ):
+            video_local = f
+            break
 
-    if video_encontrado:
+    if video_local:
         try:
-            clip_fondo = VideoFileClip(video_encontrado)
+            # Carga liviana recortando primero el tiempo
+            clip_fondo = VideoFileClip(video_local)
 
-            # Cortar o repetir según la duración del guion
-            if clip_fondo.duration < duracion_objetivo:
-                clip_fondo = clip_fondo.loop(duration=duracion_objetivo)
-            else:
+            if clip_fondo.duration > duracion_objetivo:
                 clip_fondo = clip_fondo.subclip(0, duracion_objetivo)
+            else:
+                clip_fondo = clip_fondo.loop(duration=duracion_objetivo)
 
-            # Formato vertical Shorts (1080x1920)
+            # Redimensionar a vertical 1080x1920
             clip_fondo = clip_fondo.resize(height=1920)
             if clip_fondo.w > 1080:
                 clip_fondo = clip_fondo.crop(
                     x_center=clip_fondo.w / 2, width=1080, height=1920
                 )
 
-            return clip_fondo, f"Video de GitHub detectado: '{video_encontrado}'"
+            return (
+                clip_fondo,
+                f"Video local cargado exitosamente ('{video_local}')",
+            )
         except Exception as e:
-            pass
+            st.warning(f"No se pudo procesar {video_local}: {e}")
 
-    # Respaldo si no encuentra ningún video en la carpeta
-    url_backup = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
-    archivo_temp = "animacion_descargada.mp4"
-    headers = {"User-Agent": "Mozilla/5.0"}
-
-    try:
-        resp = requests.get(url_backup, headers=headers, stream=True, timeout=15)
-        if resp.status_code == 200:
-            with open(archivo_temp, "wb") as f:
-                for chunk in resp.iter_content(chunk_size=1024 * 1024):
-                    if chunk:
-                        f.write(chunk)
-            clip_fondo = VideoFileClip(archivo_temp)
-            if clip_fondo.duration < duracion_objetivo:
-                clip_fondo = clip_fondo.loop(duration=duracion_objetivo)
-            else:
-                clip_fondo = clip_fondo.subclip(0, duracion_objetivo)
-            clip_fondo = clip_fondo.resize(height=1920)
-            if clip_fondo.w > 1080:
-                clip_fondo = clip_fondo.crop(
-                    x_center=clip_fondo.w / 2, width=1080, height=1920
-                )
-            return clip_fondo, "Video respaldado CDN"
-    except Exception:
-        pass
-
+    # Respaldo seguro si no hay video subido
     return (
         ColorClip(
             size=(1080, 1920), color=(25, 35, 60), duration=duracion_objetivo
         ),
-        "Fondo Plano (Falló descarga)",
+        "Fondo plano de emergencia",
     )
 
 
-# Subtítulos estilo comiquita
+# Generador de capas de subtítulos estilo infantil
 def crear_subtitulos_img(
     texto, ancho=1080, alto=1920, color_fondo=(0, 0, 0, 180)
 ):
@@ -260,10 +234,11 @@ if st.button("✨ Generar Short de Comiquita"):
                 audio_clip = AudioFileClip(audio_file)
                 duracion = audio_clip.duration
 
-                fondo_animado, fuente_usada = obtener_video_animado_real(
+                # Obtener animación con corte directo
+                fondo_animado, fuente_usada = obtener_video_animado_optimizado(
                     duracion
                 )
-                st.caption(f"ℹ️ Fuente de fondo utilizada: {fuente_usada}")
+                st.info(f"ℹ️ {fuente_usada}")
 
                 img_sub = crear_subtitulos_img(
                     guion_texto, ancho=1080, alto=1920
