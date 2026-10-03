@@ -2,6 +2,7 @@ import asyncio
 import os
 import edge_tts
 import google.generativeai as genai
+from gtts import gTTS
 import requests
 import streamlit as st
 from PIL import Image, ImageDraw, ImageFont
@@ -24,22 +25,21 @@ st.write(
 
 gemini_api_key = st.secrets.get("GEMINI_API_KEY", "")
 
-# Selector de Voces Infantiles Nativas
+# Selector de Voces Infantiles
 opcion_voz = st.selectbox(
     "🎙️ Elige la voz infantil:",
     options=[
-        "👧 Niña Marina (México - Voz Infantil Nativa)",
-        "👧 Niña Dalia (México - Voz Juvenil Alegre)",
-        "👦 Niño Alonso (EE.UU./Latino - Voz Infantil)",
-        "👧 Niña Salomé (Colombia - Voz Juvenil)",
+        "👧 Niña Dalia (México - Voz Infantil/Alegre)",
+        "👦 Niño Jorge (México - Voz Animada)",
+        "👧 Niña Salomé (Colombia - Voz Infantil)",
+        "👦 Niño Alonso (EE.UU. Latino - Voz Infantil)",
     ],
 )
 
-# Mapeo directo a voces neuronales infantiles sin errores de parámetros
-if "Marina" in opcion_voz:
-    voz_id = "es-MX-MarinaNeural"
-elif "Dalia" in opcion_voz:
+if "Dalia" in opcion_voz:
     voz_id = "es-MX-DaliaNeural"
+elif "Jorge" in opcion_voz:
+    voz_id = "es-MX-JorgeNeural"
 elif "Alonso" in opcion_voz:
     voz_id = "es-US-AlonsoNeural"
 else:
@@ -51,13 +51,33 @@ prompt_usuario = st.text_input(
 )
 
 
-# Función para generar la voz infantil con edge-tts de forma estable
-async def generar_voz_infantil(texto, voz, archivo_salida):
-    communicate = edge_tts.Communicate(texto, voz)
-    await communicate.save(archivo_salida)
+# Función para generar la voz infantil con sistema de respaldo automático
+async def generar_voz_segura(texto, voz_principal, archivo_salida):
+    voces_prueba = [
+        voz_principal,
+        "es-MX-DaliaNeural",
+        "es-MX-JorgeNeural",
+        "es-ES-AlvaroNeural",
+    ]
+
+    for voz in voces_prueba:
+        try:
+            communicate = edge_tts.Communicate(texto, voz)
+            await communicate.save(archivo_salida)
+            if (
+                os.path.exists(archivo_salida)
+                and os.path.getsize(archivo_salida) > 0
+            ):
+                return
+        except Exception:
+            continue
+
+    # Respaldo secundario con gTTS si los servidores de Edge están inaccesibles
+    tts = gTTS(text=texto, lang="es", slow=False)
+    tts.save(archivo_salida)
 
 
-# Función para descargar e integrar video animado/comiquita real
+# Función para descargar e integrar video animado real
 def obtener_video_comiquita(duracion_objetivo):
     url_video = "https://assets.mixkit.co/videos/preview/mixkit-cartoon-character-in-a-jungle-41555-large.mp4"
     archivo_fondo = "video_comiquita.mp4"
@@ -197,10 +217,10 @@ if st.button("✨ Generar Short de Comiquita"):
                 st.error(f"Error con Gemini: {e}")
                 st.stop()
 
-        # 2. Voz infantil
-        with st.spinner("2/3 Generando la voz infantil estilo comiquita..."):
+        # 2. Voz infantil con respaldo
+        with st.spinner("2/3 Generando la voz infantil..."):
             audio_file = "locucion_infantil.mp3"
-            asyncio.run(generar_voz_infantil(guion_texto, voz_id, audio_file))
+            asyncio.run(generar_voz_segura(guion_texto, voz_id, audio_file))
 
         # 3. Ensamblar Video Animado
         with st.spinner(
