@@ -24,29 +24,26 @@ st.write(
 
 gemini_api_key = st.secrets.get("GEMINI_API_KEY", "")
 
-# Selector de Voz Infantil
+# Selector de Voces Infantiles Nativas
 opcion_voz = st.selectbox(
     "🎙️ Elige la voz infantil:",
     options=[
         "👧 Niña Marina (México - Voz Infantil Nativa)",
-        "👧 Niña Dalia (+25% Agudo - Estilo Caricatura)",
-        "👦 Niño Jorge (+25% Agudo - Animado)",
-        "👧 Niña Salomé (+20% Agudo - Colombia)",
+        "👧 Niña Dalia (México - Voz Juvenil Alegre)",
+        "👦 Niño Alonso (EE.UU./Latino - Voz Infantil)",
+        "👧 Niña Salomé (Colombia - Voz Juvenil)",
     ],
 )
 
+# Mapeo directo a voces neuronales infantiles sin errores de parámetros
 if "Marina" in opcion_voz:
     voz_id = "es-MX-MarinaNeural"
-    pitch_val = "+0%"
 elif "Dalia" in opcion_voz:
     voz_id = "es-MX-DaliaNeural"
-    pitch_val = "+25%"
-elif "Jorge" in opcion_voz:
-    voz_id = "es-MX-JorgeNeural"
-    pitch_val = "+25%"
+elif "Alonso" in opcion_voz:
+    voz_id = "es-US-AlonsoNeural"
 else:
     voz_id = "es-CO-SalomeNeural"
-    pitch_val = "+20%"
 
 prompt_usuario = st.text_input(
     "¿De qué quieres que trate el video de comiquita?",
@@ -54,9 +51,9 @@ prompt_usuario = st.text_input(
 )
 
 
-# Función para generar la voz infantil con edge-tts
-async def generar_voz_infantil(texto, voz, pitch, archivo_salida):
-    communicate = edge_tts.Communicate(texto, voz, pitch=pitch, rate="+8%")
+# Función para generar la voz infantil con edge-tts de forma estable
+async def generar_voz_infantil(texto, voz, archivo_salida):
+    communicate = edge_tts.Communicate(texto, voz)
     await communicate.save(archivo_salida)
 
 
@@ -203,9 +200,7 @@ if st.button("✨ Generar Short de Comiquita"):
         # 2. Voz infantil
         with st.spinner("2/3 Generando la voz infantil estilo comiquita..."):
             audio_file = "locucion_infantil.mp3"
-            asyncio.run(
-                generar_voz_infantil(guion_texto, voz_id, pitch_val, audio_file)
-            )
+            asyncio.run(generar_voz_infantil(guion_texto, voz_id, audio_file))
 
         # 3. Ensamblar Video Animado
         with st.spinner(
