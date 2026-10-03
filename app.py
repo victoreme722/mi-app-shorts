@@ -51,18 +51,12 @@ prompt_usuario = st.text_input(
 )
 
 
-# Función para generar la voz infantil con sistema de respaldo automático
+# Generación de voz con respaldo
 async def generar_voz_segura(texto, voz_principal, archivo_salida):
-    voces_prueba = [
-        voz_principal,
-        "es-MX-DaliaNeural",
-        "es-MX-JorgeNeural",
-        "es-ES-AlvaroNeural",
-    ]
-
-    for voz in voces_prueba:
+    voces = [voz_principal, "es-MX-DaliaNeural", "es-MX-JorgeNeural"]
+    for v in voces:
         try:
-            communicate = edge_tts.Communicate(texto, voz)
+            communicate = edge_tts.Communicate(texto, v)
             await communicate.save(archivo_salida)
             if (
                 os.path.exists(archivo_salida)
@@ -71,47 +65,62 @@ async def generar_voz_segura(texto, voz_principal, archivo_salida):
                 return
         except Exception:
             continue
-
-    # Respaldo secundario con gTTS si los servidores de Edge están inaccesibles
     tts = gTTS(text=texto, lang="es", slow=False)
     tts.save(archivo_salida)
 
 
-# Función para descargar e integrar video animado real
-def obtener_video_comiquita(duracion_objetivo):
-    url_video = "https://assets.mixkit.co/videos/preview/mixkit-cartoon-character-in-a-jungle-41555-large.mp4"
-    archivo_fondo = "video_comiquita.mp4"
+# Función con múltiples URLs de videos de animación real para garantizar descarga
+def obtener_video_animado_real(duracion_objetivo):
+    urls_animacion = [
+        "https://v.ftcdn.net/05/23/94/82/700_F_523948283_a3889p4N4nK2L5x.mp4",
+        "https://assets.mixkit.co/videos/preview/mixkit-cartoon-character-in-a-jungle-41555-large.mp4",
+        "https://assets.mixkit.co/videos/preview/mixkit-colorful-abstract-bokeh-lights-background-41558-large.mp4",
+    ]
 
-    if not os.path.exists(archivo_fondo):
-        resp = requests.get(url_video, stream=True)
-        with open(archivo_fondo, "wb") as f:
-            for chunk in resp.iter_content(chunk_size=1024 * 1024):
-                if chunk:
-                    f.write(chunk)
+    archivo_fondo = "animacion_caricatura.mp4"
+
+    # Probar fuentes hasta descargar un video válido
+    descargado = False
+    for url in urls_animacion:
+        try:
+            resp = requests.get(url, stream=True, timeout=10)
+            if resp.status_code == 200:
+                with open(archivo_fondo, "wb") as f:
+                    for chunk in resp.iter_content(chunk_size=1024 * 1024):
+                        if chunk:
+                            f.write(chunk)
+                descargado = True
+                break
+        except Exception:
+            continue
 
     try:
-        clip_fondo = VideoFileClip(archivo_fondo)
+        if descargado and os.path.exists(archivo_fondo):
+            clip_fondo = VideoFileClip(archivo_fondo)
+            if clip_fondo.duration < duracion_objetivo:
+                clip_fondo = clip_fondo.loop(duration=duracion_objetivo)
+            else:
+                clip_fondo = clip_fondo.subclip(0, duracion_objetivo)
 
-        if clip_fondo.duration < duracion_objetivo:
-            clip_fondo = clip_fondo.loop(duration=duracion_objetivo)
-        else:
-            clip_fondo = clip_fondo.subclip(0, duracion_objetivo)
-
-        clip_fondo = clip_fondo.resize(height=1920)
-        if clip_fondo.w > 1080:
-            clip_fondo = clip_fondo.crop(
-                x_center=clip_fondo.w / 2, width=1080, height=1920
-            )
-        return clip_fondo
+            # Ajustar a vertical 9:16 (1080x1920)
+            clip_fondo = clip_fondo.resize(height=1920)
+            if clip_fondo.w > 1080:
+                clip_fondo = clip_fondo.crop(
+                    x_center=clip_fondo.w / 2, width=1080, height=1920
+                )
+            return clip_fondo
     except Exception:
-        return ColorClip(
-            size=(1080, 1920), color=(255, 182, 193), duration=duracion_objetivo
-        )
+        pass
+
+    # Si todo falla, crear fondo azul marino con textura
+    return ColorClip(
+        size=(1080, 1920), color=(25, 35, 60), duration=duracion_objetivo
+    )
 
 
-# Función para generar subtítulos estilo comiquita
+# Generador de capas de subtítulos estilo infantil
 def crear_subtitulos_img(
-    texto, ancho=1080, alto=1920, color_fondo=(0, 0, 0, 175)
+    texto, ancho=1080, alto=1920, color_fondo=(0, 0, 0, 180)
 ):
     img = Image.new("RGBA", (ancho, alto), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
@@ -126,7 +135,7 @@ def crear_subtitulos_img(
     linea_actual = []
     for p in palabras:
         linea_actual.append(p)
-        if len(" ".join(linea_actual)) > 19:
+        if len(" ".join(linea_actual)) > 18:
             lineas.append(" ".join(linea_actual[:-1]))
             linea_actual = [p]
     if linea_actual:
@@ -171,7 +180,7 @@ if st.button("✨ Generar Short de Comiquita"):
     elif not gemini_api_key:
         st.error("No se ha configurado GEMINI_API_KEY en los Secrets.")
     else:
-        # 1. Guion infantil corto
+        # 1. Guion infantil
         with st.spinner("1/3 Redactando historia infantil con Gemini..."):
             try:
                 genai.configure(api_key=gemini_api_key)
@@ -217,7 +226,7 @@ if st.button("✨ Generar Short de Comiquita"):
                 st.error(f"Error con Gemini: {e}")
                 st.stop()
 
-        # 2. Voz infantil con respaldo
+        # 2. Voz infantil
         with st.spinner("2/3 Generando la voz infantil..."):
             audio_file = "locucion_infantil.mp3"
             asyncio.run(generar_voz_segura(guion_texto, voz_id, audio_file))
@@ -230,7 +239,8 @@ if st.button("✨ Generar Short de Comiquita"):
                 audio_clip = AudioFileClip(audio_file)
                 duracion = audio_clip.duration
 
-                fondo_animado = obtener_video_comiquita(duracion)
+                # Obtener animación real
+                fondo_animado = obtener_video_animado_real(duracion)
 
                 img_sub = crear_subtitulos_img(
                     guion_texto, ancho=1080, alto=1920
@@ -267,4 +277,4 @@ if st.button("✨ Generar Short de Comiquita"):
 
             except Exception as e:
                 st.error(f"Error al renderizar el video: {e}")
-                
+    
