@@ -7,11 +7,22 @@ import requests
 import streamlit as st
 from PIL import Image, ImageDraw, ImageFont
 
-# Importaciones para MoviePy
-from moviepy.audio.io.AudioFileClip import AudioFileClip
-from moviepy.video.VideoClip import ColorClip, ImageClip
-from moviepy.video.compositing.CompositeVideoClip import CompositeVideoClip
-from moviepy.video.io.VideoFileClip import VideoFileClip
+# Importaciones robustas de MoviePy y sus efectos (vfx)
+try:
+    from moviepy.editor import (
+        AudioFileClip,
+        ColorClip,
+        CompositeVideoClip,
+        ImageClip,
+        VideoFileClip,
+    )
+    import moviepy.video.fx.all as vfx
+except Exception:
+    from moviepy.audio.io.AudioFileClip import AudioFileClip
+    from moviepy.video.compositing.CompositeVideoClip import CompositeVideoClip
+    from moviepy.video.io.VideoFileClip import VideoFileClip
+    from moviepy.video.VideoClip import ColorClip, ImageClip
+    import moviepy.video.fx.all as vfx
 
 st.set_page_config(
     page_title="Creador de Shorts de Comiquitas", page_icon="🧸", layout="centered"
@@ -69,9 +80,8 @@ async def generar_voz_segura(texto, voz_principal, archivo_salida):
     tts.save(archivo_salida)
 
 
-# Carga optimizada de video para no saturar memoria RAM
+# Procesamiento seguro y compatible de video con MoviePy vfx
 def obtener_video_animado_optimizado(duracion_objetivo):
-    # Buscar cualquier video subido en el repositorio
     extensiones = (".mp4", ".mov", ".avi", ".webm")
     video_local = None
 
@@ -84,29 +94,45 @@ def obtener_video_animado_optimizado(duracion_objetivo):
 
     if video_local:
         try:
-            # Carga liviana recortando primero el tiempo
             clip_fondo = VideoFileClip(video_local)
 
+            # 1. Ajustar duración (Loop o Subclip)
             if clip_fondo.duration > duracion_objetivo:
                 clip_fondo = clip_fondo.subclip(0, duracion_objetivo)
             else:
-                clip_fondo = clip_fondo.loop(duration=duracion_objetivo)
+                try:
+                    clip_fondo = clip_fondo.loop(duration=duracion_objetivo)
+                except Exception:
+                    clip_fondo = vfx.loop(clip_fondo, duration=duracion_objetivo)
 
-            # Redimensionar a vertical 1080x1920
-            clip_fondo = clip_fondo.resize(height=1920)
+            # 2. Redimensionar alto a 1920px (compatibilidad doble)
+            try:
+                clip_fondo = clip_fondo.resize(height=1920)
+            except Exception:
+                clip_fondo = vfx.resize(clip_fondo, height=1920)
+
+            # 3. Recortar ancho a 1080px si es más ancho
             if clip_fondo.w > 1080:
-                clip_fondo = clip_fondo.crop(
-                    x_center=clip_fondo.w / 2, width=1080, height=1920
-                )
+                try:
+                    clip_fondo = clip_fondo.crop(
+                        x_center=clip_fondo.w / 2, width=1080, height=1920
+                    )
+                except Exception:
+                    clip_fondo = vfx.crop(
+                        clip_fondo,
+                        x_center=clip_fondo.w / 2,
+                        width=1080,
+                        height=1920,
+                    )
 
             return (
                 clip_fondo,
-                f"Video local cargado exitosamente ('{video_local}')",
+                f"Video local procesado con éxito ('{video_local}')",
             )
         except Exception as e:
-            st.warning(f"No se pudo procesar {video_local}: {e}")
+            st.warning(f"Error procesando {video_local}: {e}")
 
-    # Respaldo seguro si no hay video subido
+    # Respaldo de seguridad
     return (
         ColorClip(
             size=(1080, 1920), color=(25, 35, 60), duration=duracion_objetivo
@@ -124,7 +150,7 @@ def crear_subtitulos_img(
 
     try:
         font = ImageFont.truetype("DejaVuSans-Bold.ttf", 54)
-    except:
+    except Exception:
         font = ImageFont.load_default()
 
     palabras = texto.split()
@@ -209,7 +235,7 @@ if st.button("✨ Generar Short de Comiquita"):
                         if res and res.text:
                             guion_texto = res.text.strip()
                             break
-                    except:
+                    except Exception:
                         continue
 
                 if not guion_texto:
@@ -234,7 +260,7 @@ if st.button("✨ Generar Short de Comiquita"):
                 audio_clip = AudioFileClip(audio_file)
                 duracion = audio_clip.duration
 
-                # Obtener animación con corte directo
+                # Obtener animación con funciones de compatibilidad
                 fondo_animado, fuente_usada = obtener_video_animado_optimizado(
                     duracion
                 )
@@ -275,4 +301,4 @@ if st.button("✨ Generar Short de Comiquita"):
 
             except Exception as e:
                 st.error(f"Error al renderizar el video: {e}")
-                
+    
